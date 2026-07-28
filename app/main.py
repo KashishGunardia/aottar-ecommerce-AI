@@ -6,7 +6,7 @@ from app.core.logger import logger
 from app.core.scheduler import init_product_sync, shutdown_scheduler
 
 from app.api.health import router as health_router
-from app.api.chat import router as chat_router, chat_service
+from app.api.chat import router as chat_router, get_chat_service
 from app.api.products import router as products_router
 from app.api.vendors import router as vendors_router
 
@@ -60,11 +60,20 @@ app.include_router(vendors_router, prefix="/vendors", tags=["Vendors"])
 # ==========================================
 
 @app.on_event("startup")
-def start_product_sync():
-    # chat_service is the same singleton the /chat/ route uses, so reloading
-    # chat_service.pipeline.hybrid here updates the exact index the chatbot
-    # searches against — no restart needed after a WooCommerce product change.
-    init_product_sync(lambda: chat_service.pipeline.hybrid)
+async def start_product_sync():
+    # Build the ChatService pipeline (embedding model, FAISS index, BM25,
+    # WooCommerce fetch) in a background thread instead of blocking here.
+    # uvicorn has already bound $PORT by the time this startup event runs,
+    # so Render's port scan succeeds immediately; the pipeline finishes
+    # warming up a few seconds/minutes later without holding up the deploy.
+    import asyncio
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, get_chat_service)
+
+    # get_chat_service() is a singleton getter, so this reloads the exact
+    # index the /chat/ route searches against — no restart needed after a
+    # WooCommerce product change.
+    init_product_sync(lambda: get_chat_service().pipeline.hybrid)
 
 
 @app.on_event("shutdown")

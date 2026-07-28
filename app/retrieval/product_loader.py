@@ -45,8 +45,15 @@ def load_products():
         with open(CACHE_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    wc = WooCommerceService()
-
-    products = wc.get_products()
-
-    return [_clean_product(p) for p in products]
+    try:
+        wc = WooCommerceService()
+        products = wc.get_products()
+        return [_clean_product(p) for p in products]
+    except Exception as exc:
+        # No cache yet (first boot) and WooCommerce is unreachable/slow/
+        # misconfigured. Don't let this take down app startup - boot with
+        # an empty catalog and let the scheduled sync job (see
+        # app/core/scheduler.py) populate it as soon as it succeeds.
+        print(f"[product_loader] WooCommerce fetch failed, starting with "
+              f"an empty product catalog: {exc}")
+        return []

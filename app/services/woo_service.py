@@ -30,7 +30,14 @@ class WooCommerceService:
                     "per_page": 100,
                     "page": page,
                     "status": "publish"
-                }
+                },
+
+                # Without a timeout, requests waits forever if the
+                # WooCommerce site is slow/unreachable. That previously hung
+                # app startup indefinitely (ChatService/ShoppingPipeline are
+                # built at import time), which meant uvicorn never got to
+                # bind the port and Render's deploy timed out.
+                timeout=15,
 
             )
 

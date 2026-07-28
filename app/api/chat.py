@@ -11,7 +11,20 @@ from app.services.chat_service import ChatService
 
 router = APIRouter()
 
-chat_service = ChatService()
+# ChatService() builds the whole pipeline (embedding model, FAISS index,
+# BM25 corpus, WooCommerce fetch) - this used to run at import time, which
+# blocks uvicorn from ever binding to $PORT until it finishes. On Render
+# that meant the deploy timed out before the server ever started listening.
+# It's now built lazily on first use, and eagerly "warmed up" in the
+# background from main.py's startup event (after the port is already open).
+_chat_service = None
+
+
+def get_chat_service() -> ChatService:
+    global _chat_service
+    if _chat_service is None:
+        _chat_service = ChatService()
+    return _chat_service
 
 
 def _derive_session_key(http_request: Request) -> str:
@@ -38,7 +51,7 @@ async def chat(request: ChatRequest, http_request: Request):
     try:
         session_key = _derive_session_key(http_request)
 
-        result = chat_service.chat(request.message, session_key=session_key)
+        result = get_chat_service().chat(request.message, session_key=session_key)
 
         response = {
             "success": True,
