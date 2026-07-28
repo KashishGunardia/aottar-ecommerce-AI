@@ -1,4 +1,5 @@
 import hashlib
+import threading
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -18,12 +19,17 @@ router = APIRouter()
 # It's now built lazily on first use, and eagerly "warmed up" in the
 # background from main.py's startup event (after the port is already open).
 _chat_service = None
+_chat_service_lock = threading.Lock()
 
 
 def get_chat_service() -> ChatService:
     global _chat_service
     if _chat_service is None:
-        _chat_service = ChatService()
+        # Guards against the background warm-up task and an early /chat
+        # request both trying to build ChatService() at the same time.
+        with _chat_service_lock:
+            if _chat_service is None:
+                _chat_service = ChatService()
     return _chat_service
 
 

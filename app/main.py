@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -59,21 +61,41 @@ app.include_router(vendors_router, prefix="/vendors", tags=["Vendors"])
 # Vendor -> WooCommerce -> Cache -> FAISS -> Chatbot sync
 # ==========================================
 
+# Tracks whether the ChatService pipeline (embedding model, FAISS index,
+# BM25, WooCommerce fetch) has finished warming up. Exposed on /health so
+# you can tell whether the app is up but still loading vs fully ready.
+app.state.pipeline_ready = False
+
+
+async def _warm_up_pipeline():
+    """
+    Builds the ChatService pipeline in the background.
+
+    IMPORTANT: this must NOT be awaited directly inside the `startup` event.
+    uvicorn does not start accepting connections until the startup event
+    returns, so awaiting slow work here (loading torch/sentence-transformers
+    models, hitting WooCommerce) reproduces the exact "no open ports
+    detected" timeout this function exists to avoid. Firing it as a
+    background task lets `startup` return immediately.
+    """
+    loop = asyncio.get_event_loop()
+    try:
+        await loop.run_in_executor(None, get_chat_service)
+
+        # get_chat_service() is a singleton getter, so this reloads the
+        # exact index the /chat/ route searches against — no restart needed
+        # after a WooCommerce product change.
+        init_product_sync(lambda: get_chat_service().pipeline.hybrid)
+
+        app.state.pipeline_ready = True
+        logger.info("✅ Chat pipeline warmed up and ready")
+    except Exception:
+        logger.exception("❌ Chat pipeline failed to warm up")
+
+
 @app.on_event("startup")
 async def start_product_sync():
-    # Build the ChatService pipeline (embedding model, FAISS index, BM25,
-    # WooCommerce fetch) in a background thread instead of blocking here.
-    # uvicorn has already bound $PORT by the time this startup event runs,
-    # so Render's port scan succeeds immediately; the pipeline finishes
-    # warming up a few seconds/minutes later without holding up the deploy.
-    import asyncio
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, get_chat_service)
-
-    # get_chat_service() is a singleton getter, so this reloads the exact
-    # index the /chat/ route searches against — no restart needed after a
-    # WooCommerce product change.
-    init_product_sync(lambda: get_chat_service().pipeline.hybrid)
+    asyncio.create_task(_warm_up_pipeline())
 
 
 @app.on_event("shutdown")
