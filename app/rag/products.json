@@ -1,0 +1,29 @@
+[
+  {
+    "name": "Dahua 5MP Dome Camera",
+    "category": "CCTV Camera",
+    "brand": "Dahua",
+    "price": 4500,
+    "url": "https://aottar.com/product/dahua-5mp-dome-camera",
+    "image": "https://aottar.com/wp-content/uploads/dahua-camera.jpg",
+    "description": "5MP indoor dome camera with night vision and smart IR technology"
+  },
+  {
+    "name": "CP Plus 4 Channel DVR",
+    "category": "DVR",
+    "brand": "CP Plus",
+    "price": 3500,
+    "url": "https://aottar.com/product/cp-plus-4-channel-dvr",
+    "image": "https://aottar.com/wp-content/uploads/cpplus-dvr.jpg",
+    "description": "4 channel DVR supporting HD cameras with reliable recording"
+  },
+  {
+    "name": "Hikvision 8 Port PoE Switch",
+    "category": "Network Equipment",
+    "brand": "Hikvision",
+    "price": 6000,
+    "url": "https://aottar.com/product/hikvision-8-port-poe-switch",
+    "image": "https://aottar.com/wp-content/uploads/hikvision-switch.jpg",
+    "description": "PoE switch for IP camera installation"
+  }
+]

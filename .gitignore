@@ -1,0 +1,19 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+
+# Generated at runtime by the WooCommerce product sync - not source
+app/data/products_cache.json
+app/rag/product_index/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

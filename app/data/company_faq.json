@@ -1,0 +1,27 @@
+{
+  "company": {
+    "name": "Aottar",
+    "about": "Aottar is an online marketplace specializing in smart home automation, security, networking, and IoT solutions.",
+    "mission": "To make smart home technology accessible, reliable, and affordable.",
+    "vision": "To become India's leading smart automation marketplace."
+  },
+
+  "services": {
+    "installation": "Installation support is available for eligible products.",
+    "consultation": "Our experts can help you choose the right automation products.",
+    "support": "Customer support is available for product-related queries."
+  },
+
+  "shipping": {
+    "availability": "Shipping is available across India."
+  },
+
+  "returns": {
+    "policy": "Return and replacement policies depend on the individual product."
+  },
+
+  "contact": {
+    "email": "support@aottar.com",
+    "website": "https://aottar.com"
+  }
+}
