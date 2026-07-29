@@ -47,6 +47,12 @@ class HybridSearch:
 
         for d in faiss_docs:
 
+            # Skip the placeholder document used to bootstrap an empty
+            # index (see app/rag/retriever.py) - it has no product
+            # metadata, so there's nothing usable to merge in here.
+            if not d.metadata or "id" not in d.metadata:
+                continue
+
             pid = d.metadata["id"]
 
             if pid not in seen:
