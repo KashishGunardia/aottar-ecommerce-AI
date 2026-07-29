@@ -39,7 +39,7 @@ app.add_middleware(
 # Root Endpoint
 # ==========================================
 
-@app.get("/", tags=["Home"])
+@app.api_route("/", methods=["GET", "HEAD"], tags=["Home"])
 async def root():
     return {
         "message": "🚀 Welcome to Aottar AI Backend",

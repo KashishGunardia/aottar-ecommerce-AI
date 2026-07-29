@@ -15,9 +15,21 @@ Vendor → WooCommerce → (scheduled sync) → local cache + FAISS index → Ch
 
 ## 1. Requirements
 
-- Python 3.11+ (developed/tested against 3.13)
+- Python 3.11+ (developed/tested against 3.13; a `.python-version` file
+  pins Render to 3.13, since some pinned dependencies don't yet ship
+  wheels for the very latest Python)
 - A WooCommerce store with REST API keys (Settings → Advanced → REST API)
 - A Groq API key (https://console.groq.com)
+
+> **Note on dependencies:** embeddings run on `fastembed` (onnxruntime,
+> CPU), not `sentence-transformers`/`transformers`/`torch`. Those pull in
+> several GB of CUDA wheels and use hundreds of MB of RAM at runtime even
+> with no GPU present — enough to get this app OOM-killed on Render's free
+> tier (512MB RAM limit). `fastembed` uses the exact same
+> `sentence-transformers/all-MiniLM-L6-v2` model (384-dim vectors), so the
+> bundled FAISS index still works without any changes. Similarly, `spacy`
+> was removed — it was only used by a module (`entity_extractor_v2.py`)
+> that the live pipeline never actually imported.
 
 ## 2. Setup
 
@@ -34,9 +46,6 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
-
-# spaCy's English model isn't a normal PyPI package — install it separately
-python -m spacy download en_core_web_sm
 ```
 
 ### Environment variables
@@ -125,6 +134,24 @@ until the backend has a valid SSL certificate too.
 Once deployed, update the CORS allow-list in `app/main.py` if your backend
 domain or WordPress domain differs from what's currently set
 (`https://aottar.com`, `https://www.aottar.com`).
+
+### Render free tier: cold starts
+
+Render's free plan spins the service down after ~15 minutes with no
+traffic. The next visitor after that wakes it back up, but the wake-up
+takes something like 30-90 seconds (loading `torch`/`transformers` and the
+embedding model), during which visitors briefly see "Bad Gateway." Check
+`GET /health` — once `pipeline_ready` is `true`, the chatbot is fully warm.
+
+Also note Render's free tier has an **ephemeral filesystem**: every
+cold start wipes the previously-built FAISS index, so you'll see a
+"No FAISS index found on disk... Building one in memory instead" log line
+on every wake-up. That's expected — the startup sync job rebuilds it
+within seconds every time, not a bug.
+
+Two ways to avoid this for a live storefront:
+1. **Keep it warm for free** — use a free uptime monitor (e.g. [UptimeRobot](https://uptimerobot.com), cron-job.org) to `GET /health` every 10-14 minutes. Traffic resets Render's idle timer, so the service never fully sleeps.
+2. **Upgrade the Render plan** to an always-on paid instance — the more robust option if this is genuinely serving real customers on `aottar.com`, since a free-tier cold start means the first visitor after any quiet period gets a slow/failed chat response.
 
 ## 7. Connecting the WordPress plugin (`aottar-ai-chatbot`)
 
