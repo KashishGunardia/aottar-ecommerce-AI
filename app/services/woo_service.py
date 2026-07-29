@@ -62,13 +62,31 @@ class WooCommerceService:
             )
 
             if not response.ok:
-                # Surface the response body (WAFs/security plugins usually
-                # explain the block here) instead of just the generic
-                # "403 Forbidden" from raise_for_status(), so the real cause
-                # shows up in /admin/sync-status and the logs.
+                # Surface the response body AND headers (WAFs/security
+                # plugins usually explain the block in the body, and often
+                # fingerprint themselves in headers like cf-ray, x-sucuri-id,
+                # or server) instead of just "403 Forbidden", so the real
+                # cause shows up in /admin/sync-status and the logs.
+                interesting_headers = {
+                    k: v
+                    for k, v in response.headers.items()
+                    if k.lower() in (
+                        "server",
+                        "cf-ray",
+                        "cf-cache-status",
+                        "x-sucuri-id",
+                        "x-sucuri-cache",
+                        "x-powered-by",
+                        "x-firewall",
+                        "x-mod-pagespeed",
+                    )
+                }
+
                 raise requests.HTTPError(
                     f"{response.status_code} error fetching WooCommerce "
-                    f"products (page {page}): {response.text[:500]}"
+                    f"products (page {page}). "
+                    f"Headers: {interesting_headers}. "
+                    f"Body: {response.text[:2000]}"
                 )
 
             products = response.json()
