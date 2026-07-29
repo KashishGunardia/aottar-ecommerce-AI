@@ -81,16 +81,20 @@ async def _warm_up_pipeline():
     loop = asyncio.get_event_loop()
     try:
         await loop.run_in_executor(None, get_chat_service)
-
-        # get_chat_service() is a singleton getter, so this reloads the
-        # exact index the /chat/ route searches against — no restart needed
-        # after a WooCommerce product change.
-        init_product_sync(lambda: get_chat_service().pipeline.hybrid)
-
         app.state.pipeline_ready = True
         logger.info("✅ Chat pipeline warmed up and ready")
     except Exception:
-        logger.exception("❌ Chat pipeline failed to warm up")
+        logger.exception(
+            "❌ Chat pipeline failed to warm up - will retry via the "
+            "scheduled product sync below"
+        )
+    finally:
+        # Start the sync scheduler regardless of whether the pipeline
+        # above succeeded. If it failed (e.g. WooCommerce was briefly
+        # unreachable), the next scheduled sync_once() still rebuilds a
+        # real FAISS/BM25 index and hot-reloads it via get_chat_service()
+        # here, self-healing without needing a manual restart.
+        init_product_sync(lambda: get_chat_service().pipeline.hybrid)
 
 
 @app.on_event("startup")
