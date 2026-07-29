@@ -24,12 +24,32 @@ class WooCommerceService:
 
                 f"{self.base_url}/wp-json/wc/v3/products",
 
+                # HTTP Basic Auth instead of ?consumer_key=...&consumer_secret=...
+                # in the URL. WooCommerce supports both over HTTPS, but some
+                # hosting firewalls/security plugins (Wordfence, Sucuri,
+                # Cloudflare) specifically flag credentials showing up in a
+                # query string as suspicious and block the request with a 403.
+                # Basic Auth avoids that, and also keeps the keys out of any
+                # server access logs.
+                auth=(self.consumer_key, self.consumer_secret),
+
                 params={
-                    "consumer_key": self.consumer_key,
-                    "consumer_secret": self.consumer_secret,
                     "per_page": 100,
                     "page": page,
                     "status": "publish"
+                },
+
+                # Some of the same firewalls/security plugins also block the
+                # default "python-requests/x.x" User-Agent outright as an
+                # obvious bot signature - a normal browser-style UA is far
+                # less likely to get challenged/blocked.
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/124.0.0.0 Safari/537.36"
+                    ),
+                    "Accept": "application/json",
                 },
 
                 # Without a timeout, requests waits forever if the
@@ -41,7 +61,15 @@ class WooCommerceService:
 
             )
 
-            response.raise_for_status()
+            if not response.ok:
+                # Surface the response body (WAFs/security plugins usually
+                # explain the block here) instead of just the generic
+                # "403 Forbidden" from raise_for_status(), so the real cause
+                # shows up in /admin/sync-status and the logs.
+                raise requests.HTTPError(
+                    f"{response.status_code} error fetching WooCommerce "
+                    f"products (page {page}): {response.text[:500]}"
+                )
 
             products = response.json()
 
